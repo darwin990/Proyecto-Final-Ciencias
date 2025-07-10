@@ -1,4 +1,3 @@
-
 package com.mycompany.proyectofinalciencias.model;
 
 import com.mycompany.proyectofinalciencias.controller.CampaignController;
@@ -14,6 +13,8 @@ public class GameSession {
     private Campaign campaign;
     private CampaignController campaignController;
     private List<GameStateObserver> observers;  // Declara la lista
+    private MoneyLaunderingSystem launderingSystem;
+    private JusticeSystem justiceSystem;
 
     public GameSession(CorruptionTree arbol, ExternalGraph grafo, PlayerStatus jugador,
                        EventSystem eventos, Campaign campaign) {
@@ -24,6 +25,8 @@ public class GameSession {
         this.campaign = campaign;
         this.campaignController = new CampaignController(campaign);
         this.observers = new ArrayList<>();  // Inicializa la lista
+        this.launderingSystem = new MoneyLaunderingSystem(this);
+        this.justiceSystem = new JusticeSystem(this);
     }
 
     public CorruptionTree getArbol() {
@@ -76,5 +79,13 @@ public class GameSession {
         for (GameStateObserver observer : observers) {
             observer.onCampaignUpdate();
         }
+    }
+
+    public MoneyLaunderingSystem getLaunderingSystem() {
+        return launderingSystem;
+    }
+
+    public JusticeSystem getJusticeSystem() {
+        return justiceSystem;
     }
 }

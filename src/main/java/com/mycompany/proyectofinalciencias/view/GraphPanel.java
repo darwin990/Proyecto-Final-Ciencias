@@ -69,7 +69,8 @@ protected void paintComponent(Graphics g) {
         g.fillOval(pos.x - 20, pos.y - 20, 40, 40);
         g.setColor(Color.BLACK);
         g.drawOval(pos.x - 20, pos.y - 20, 40, 40);
-        g.drawString(node.getLabel(), pos.x - 30, pos.y + 35);
+        // Agregar el ID junto con el label
+        g.drawString(id + " - " + node.getLabel(), pos.x - 30, pos.y + 35);
     }
 }
 

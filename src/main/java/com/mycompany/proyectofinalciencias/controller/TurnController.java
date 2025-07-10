@@ -22,7 +22,13 @@ public class TurnController {
         PlayerStatus jugador = session.getJugador();
         ExternalGraph grafo = session.getGrafo();
         EventSystem eventos = session.getEventos();
-        CampaignController campaignController = session.getCampaignController();
+        MoneyLaunderingSystem launderingSystem = session.getLaunderingSystem();
+
+        // Recolectar dinero sucio al inicio del turno
+        launderingSystem.collectDirtyMoney(arbol);
+        log.append("[DINERO SUCIO] Disponible para lavar: ")
+           .append(String.format("%.2f", launderingSystem.getDirtyMoney()))
+           .append("\n");
 
         arbol.ejecutarTurno();
         eventos.generarEventosAleatorios(arbol, jugador);
@@ -43,7 +49,8 @@ public class TurnController {
             }
         }
 
-        List<String> ruta = grafo.dijkstraShortestPath("F01", "P01");
+        // Actualizar IDs en la búsqueda de ruta
+        List<String> ruta = grafo.dijkstraShortestPath("FIS01", "PER01");  // Actualizar IDs aquí
         double totalPeso = 0;
         for (int i = 0; i < ruta.size() - 1; i++) {
             String a = ruta.get(i);
@@ -55,10 +62,33 @@ public class TurnController {
                 }
             }
         }
-        if (totalPeso <= 15 && ruta.contains("P01")) {
+        if (totalPeso <= 15 && ruta.contains("PER01")) {  // Actualizar ID aquí también
             jugador.aumentarSospecha(10);
             log.append("[ESCÁNDALO] ¡Ruta crítica detectada! +10 sospecha\n");
         }
+
+        // Activar habilidades especiales
+        log.append("\n[HABILIDADES ESPECIALES]\n");
+        for (CorruptionNode nodo : arbol.traverseBFS()) {
+            if (nodo.getState().equals("activo") && nodo.getSpecialAbility() != null) {
+                nodo.activarHabilidad(session);
+                log.append("🎯 ").append(nodo.getName())
+                   .append(" activó: ")
+                   .append(nodo.getSpecialAbility().getNombre())
+                   .append("\n");
+            }
+        }
+
+        // Reducir cooldowns de habilidades
+        for (CorruptionNode nodo : arbol.traverseBFS()) {
+            nodo.reduceCooldown();
+        }
+
+        // Procesar transacciones de lavado pendientes
+        session.getLaunderingSystem().processNextTransaction();
+        log.append("[DINERO LIMPIO] Total lavado: ")
+           .append(String.format("%.2f", launderingSystem.getCleanMoney()))
+           .append("\n");
 
         if (jugador.estaPerdido()) {
             log.append("\n❌ Has perdido. La justicia actuó.\n");
@@ -69,10 +99,27 @@ public class TurnController {
         session.notifyPlayerUpdate();
         session.notifyEvent(new GameEvent("TURNO", log.toString(), GameEvent.EventSeverity.INFO));
         
-        if (campaignController.verificarYAvanzar(arbol, jugador)) {
+        // Usar el campaignController del session en lugar de una variable no definida
+        if (session.getCampaignController().verificarYAvanzar(arbol, jugador)) {
             session.notifyCampaignUpdate();
         }
         
+        // Actualizar sistema de justicia
+        session.getJusticeSystem().update();
+        
+        // Mostrar investigaciones activas
+        List<Investigation> investigations = session.getJusticeSystem().getActiveInvestigations();
+        if (!investigations.isEmpty()) {
+            log.append("\n[INVESTIGACIONES ACTIVAS]\n");
+            for (Investigation inv : investigations) {
+                CorruptionNode target = arbol.findById(inv.getTargetId());
+                log.append("📋 ").append(target.getName())
+                   .append(" | Evidencia: ").append(String.format("%.1f", inv.getEvidence()))
+                   .append("% | Turnos restantes: ").append(inv.getRemainingDuration())
+                   .append("\n");
+            }
+        }
+
         turno++;
         return log.toString();
     }

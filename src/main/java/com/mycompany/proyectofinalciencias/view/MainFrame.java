@@ -28,18 +28,22 @@ public class MainFrame extends JFrame implements GameStateObserver {
 
     private int turno = 1;
 
-    public MainFrame(CorruptionTree arbol, ExternalGraph grafo, PlayerStatus jugador,
-                     EventSystem eventos, CampaignController campaignController) {
+    private GameSession session; // Agregar esta línea
 
-        this.arbol = arbol;
-        this.grafo = grafo;
-        this.jugador = jugador;
-        this.eventos = eventos;
-        this.campaignController = campaignController;
+    public MainFrame(GameSession session) {
+        this.session = session;  // Guardar la referencia
+        this.arbol = session.getArbol();
+        this.grafo = session.getGrafo();
+        this.jugador = session.getJugador();
+        this.eventos = session.getEventos();
+        this.campaignController = session.getCampaignController();
+
+        // Registrarse como observador
+        session.addObserver(this);
 
         this.treePanel = new TreePanel(arbol);
         this.graphPanel = new GraphPanel(grafo);
-        this.statusPanel = new StatusPanel(jugador);
+        this.statusPanel = new StatusPanel(session); // Cambiar esto
         this.campaignPanel = new CampaignPanel(campaignController.getCampaign());
 
         setLayout(new BorderLayout());
@@ -60,8 +64,9 @@ public class MainFrame extends JFrame implements GameStateObserver {
         turnoBtn.addActionListener(this::ejecutarTurno);
 
         accionesBtn = new JButton("Acciones del Jugador");
-        accionesBtn.addActionListener(e ->new TurnActionsDialog(this, jugador, arbol, grafo).setVisible(true));
-
+        accionesBtn.addActionListener(e -> 
+            new TurnActionsDialog(this, session).setVisible(true)
+        );
 
 
 
