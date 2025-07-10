@@ -1,97 +1,96 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.proyectofinalciencias.view;
 
-/**
- *
- * @author moral
- */
+import com.mycompany.proyectofinalciencias.model.ExternalGraph;
 
-import com.mycompany.proyectofinalciencias.model.Graph;
 import javax.swing.*;
 import java.awt.*;
-import java.util.Map;
-import java.awt.geom.Point2D;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class GraphPanel extends JPanel {
-private Map<String, java.util.List<String>> graph;
-    private Map<String, Point> nodePositions;
-    private static final int NODE_RADIUS = 20;
-    private static final int PADDING = 50;
 
-    public GraphPanel(Map<String, java.util.List<String>> graph) {
+    private ExternalGraph graph;
+    private String pathStartId = "F01";
+    private String pathEndId = "P01";
+
+    public GraphPanel(ExternalGraph graph) {
         this.graph = graph;
-        this.nodePositions = new HashMap<>();
-        setPreferredSize(new Dimension(1000, 800));
-        calculateNodePositions();
-    }
-
-    private void calculateNodePositions() {
-        nodePositions.clear();
-        int centerX = getPreferredSize().width / 2;
-        int centerY = getPreferredSize().height / 2;
-        int radius = Math.min(getPreferredSize().width, getPreferredSize().height) / 3;
-
-        // Distribuir nodos en un círculo
-        java.util.List<String> nodes = new ArrayList<>(graph.keySet());
-        double angleIncrement = 2 * Math.PI / nodes.size();
-
-        for (int i = 0; i < nodes.size(); i++) {
-            String node = nodes.get(i);
-            double angle = i * angleIncrement;
-            int x = centerX + (int)(radius * Math.cos(angle));
-            int y = centerY + (int)(radius * Math.sin(angle));
-            nodePositions.put(node, new Point(x, y));
-        }
-    }
-
-    public void refreshGraph() {
-        calculateNodePositions();
-        repaint();
+        setBackground(Color.WHITE);
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
 
-        // Dibujar las aristas primero
-        g2d.setColor(Color.LIGHT_GRAY);
-        for (Map.Entry<String, java.util.List<String>> entry : graph.entrySet()) {
-            String source = entry.getKey();
-            Point sourcePos = nodePositions.get(source);
+    Map<String, ExternalGraph.ExternalNode> nodes = graph.getNodes();
+    List<String> ids = new ArrayList<>(nodes.keySet());
 
-            if (sourcePos != null) {
-                for (String target : entry.getValue()) {
-                    Point targetPos = nodePositions.get(target);
-                    if (targetPos != null) {
-                        g2d.drawLine(sourcePos.x, sourcePos.y, targetPos.x, targetPos.y);
-                    }
-                }
+    int centerX = getWidth() / 2;
+    int centerY = getHeight() / 2;
+    int radius = Math.min(centerX, centerY) - 80;
+
+    Map<String, Point> positions = new HashMap<>();
+    for (int i = 0; i < ids.size(); i++) {
+        double angle = 2 * Math.PI * i / ids.size();
+        int x = centerX + (int) (radius * Math.cos(angle));
+        int y = centerY + (int) (radius * Math.sin(angle));
+        positions.put(ids.get(i), new Point(x, y));
+    }
+
+    // Calcular ruta crítica
+    List<String> path = graph.dijkstraShortestPath(pathStartId, pathEndId);
+
+    // Dibujar aristas
+    for (String from : ids) {
+        for (ExternalGraph.Connection conn : graph.getConnections(from)) {
+            String to = conn.getTarget();
+            if (positions.containsKey(to) && from.compareTo(to) < 0) {
+                Point p1 = positions.get(from);
+                Point p2 = positions.get(to);
+
+                boolean isInPath = isConnectionInPath(from, to, path);
+                g.setColor(isInPath ? Color.RED : Color.BLACK);
+                g.drawLine(p1.x, p1.y, p2.x, p2.y);
+
+                int mx = (p1.x + p2.x) / 2;
+                int my = (p1.y + p2.y) / 2;
+                g.setColor(Color.BLUE);
+                g.drawString(String.format("%.0f", conn.getWeight()), mx, my);
             }
         }
+    }
 
-        // Dibujar los nodos después
-        for (Map.Entry<String, Point> entry : nodePositions.entrySet()) {
-            Point pos = entry.getValue();
-            String node = entry.getKey();
+    // Dibujar nodos
+    for (String id : ids) {
+        ExternalGraph.ExternalNode node = nodes.get(id);
+        Point pos = positions.get(id);
+        g.setColor(getColorByType(node.getType()));
+        g.fillOval(pos.x - 20, pos.y - 20, 40, 40);
+        g.setColor(Color.BLACK);
+        g.drawOval(pos.x - 20, pos.y - 20, 40, 40);
+        g.drawString(node.getLabel(), pos.x - 30, pos.y + 35);
+    }
+}
 
-            // Dibujar círculo del nodo
-            g2d.setColor(Color.WHITE);
-            g2d.fillOval(pos.x - NODE_RADIUS, pos.y - NODE_RADIUS, 2 * NODE_RADIUS, 2 * NODE_RADIUS);
-            g2d.setColor(Color.BLUE);
-            g2d.drawOval(pos.x - NODE_RADIUS, pos.y - NODE_RADIUS, 2 * NODE_RADIUS, 2 * NODE_RADIUS);
 
-            // Dibujar etiqueta del nodo
-            FontMetrics fm = g2d.getFontMetrics();
-            int textWidth = fm.stringWidth(node);
-            int textHeight = fm.getHeight();
-            g2d.drawString(node, pos.x - textWidth / 2, pos.y + textHeight / 4);
+    private Color getColorByType(String type) {
+        return switch (type.toLowerCase()) {
+            case "fiscal" -> Color.RED;
+            case "periodista" -> Color.ORANGE;
+            case "politico" -> Color.GREEN;
+            default -> Color.GRAY;
+        };
+    }
+    private boolean isConnectionInPath(String a, String b, List<String> path) {
+    for (int i = 0; i < path.size() - 1; i++) {
+        String n1 = path.get(i);
+        String n2 = path.get(i + 1);
+        if ((n1.equals(a) && n2.equals(b)) || (n1.equals(b) && n2.equals(a))) {
+            return true;
         }
     }
+    return false;
+}
+
 }
